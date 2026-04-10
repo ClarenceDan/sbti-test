@@ -16,15 +16,36 @@ import {
 import { getDictionary } from '@/data/i18n';
 import { TYPE_LIBRARY, TYPE_IMAGES, NORMAL_TYPES } from '@/data/types';
 import { useRuntimeSite } from '@/lib/use-runtime-site';
-import { SiteStats } from '@/types';
+import { SavedResultEntry, SiteStats } from '@/types';
 
 interface IntroScreenProps {
   onStart: () => void;
+  onOpenHistory: (entry: SavedResultEntry) => void;
+  history: SavedResultEntry[];
   stats?: SiteStats | null;
   locale: LocaleCode;
 }
 
-export default function IntroScreen({ onStart, stats, locale }: IntroScreenProps) {
+function formatHistoryTime(timestamp: number, locale: string) {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(timestamp));
+  } catch {
+    return new Date(timestamp).toLocaleString();
+  }
+}
+
+export default function IntroScreen({
+  onStart,
+  onOpenHistory,
+  history,
+  stats,
+  locale,
+}: IntroScreenProps) {
   const dictionary = getDictionary(locale);
   const { host } = useRuntimeSite();
   const totalCompletions = stats?.totalCompletions ?? 16790;
@@ -159,6 +180,63 @@ export default function IntroScreen({ onStart, stats, locale }: IntroScreenProps
       <section className="section-card card intro-blurb">
         <p>{dictionary.intro.blurb}</p>
       </section>
+
+      {history.length > 0 && (
+        <section className="section-card card history-section">
+          <div className="section-heading">
+            <h2>{dictionary.intro.historyTitle}</h2>
+            <p>{dictionary.intro.historyDesc}</p>
+          </div>
+
+          <div className="history-grid">
+            {history.map((entry, index) => {
+              const info = TYPE_LIBRARY[entry.typeCode] ?? entry.result.finalType;
+              const imageSrc = TYPE_IMAGES[entry.typeCode];
+              const timestamp = formatHistoryTime(entry.createdAt, dictionary.htmlLang);
+
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="history-card"
+                  onClick={() => onOpenHistory(entry)}
+                >
+                  <div className="history-card-head">
+                    <span className="history-pill">
+                      {index === 0 ? dictionary.intro.historyLatest : timestamp}
+                    </span>
+                    <span className="history-open">{dictionary.intro.historyOpen}</span>
+                  </div>
+
+                  <div className="history-card-body">
+                    {imageSrc && (
+                      <Image
+                        src={imageSrc}
+                        alt={entry.typeCode}
+                        width={88}
+                        height={88}
+                        className="history-avatar"
+                      />
+                    )}
+                    <div className="history-copy">
+                      <div className="history-title">
+                        <strong>{entry.typeCode}</strong>
+                        <span>{info.cn}</span>
+                      </div>
+                      <p>{info.intro}</p>
+                    </div>
+                  </div>
+
+                  <div className="history-card-foot">
+                    <span>{dictionary.intro.historyDna}: {entry.dna}</span>
+                    <span>{timestamp}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="section-card card">
         <div className="section-heading">

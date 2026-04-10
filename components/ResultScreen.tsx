@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LocaleCode, withLocalePath } from '@/data/brand';
+import BrandLogo from '@/components/BrandLogo';
+import { LocaleCode, POPULAR_TYPES, RARE_TYPES, withLocalePath } from '@/data/brand';
 import { getDictionary } from '@/data/i18n';
 import { useRuntimeSite } from '@/lib/use-runtime-site';
-import { ComputeResult } from '@/types';
+import { ComputeResult, SiteStats } from '@/types';
 import { TYPE_IMAGES } from '@/data/types';
 import { dimensionMeta, DIM_EXPLANATIONS, dimensionOrder } from '@/data/dimensions';
 import { encodeDna } from '@/data/dna';
@@ -16,6 +17,7 @@ interface ResultScreenProps {
   isShared?: boolean;
   onRestart: () => void;
   onHome: () => void;
+  stats?: SiteStats | null;
   locale: LocaleCode;
 }
 
@@ -46,6 +48,7 @@ export default function ResultScreen({
   isShared,
   onRestart,
   onHome,
+  stats,
   locale,
 }: ResultScreenProps) {
   const dictionary = getDictionary(locale);
@@ -108,6 +111,38 @@ export default function ResultScreen({
     };
   }, [locale, result.bestNormal.exact, result.bestNormal.similarity, result.finalType.code, result.special]);
 
+  const rarityText = useMemo(() => {
+    const liveMatch = [...(stats?.popularTypes ?? []), ...(stats?.rareTypes ?? [])]
+      .find((item) => item.code === result.finalType.code);
+
+    if (liveMatch?.percent) {
+      return liveMatch.percent;
+    }
+
+    const fallbackMatch = [...POPULAR_TYPES, ...RARE_TYPES]
+      .find((item) => item.code === result.finalType.code);
+
+    return fallbackMatch?.percent ?? dictionary.result.rarityPending;
+  }, [dictionary.result.rarityPending, result.finalType.code, stats?.popularTypes, stats?.rareTypes]);
+
+  const matchDetail = useMemo(() => {
+    if (result.finalType.code === 'DRUNK') {
+      return locale === 'zh' || locale === 'tw' || locale === 'hk'
+        ? '酒精因子已越权接管，常规命中度不再展示。'
+        : 'Alcohol override was triggered, so the normal match detail is hidden.';
+    }
+
+    if (result.special) {
+      return locale === 'zh' || locale === 'tw' || locale === 'hk'
+        ? `标准人格命中最高仅 ${result.bestNormal.similarity}%`
+        : `Best standard-library match only reached ${result.bestNormal.similarity}%`;
+    }
+
+    return locale === 'zh' || locale === 'tw' || locale === 'hk'
+      ? `精准命中 ${result.bestNormal.exact}/15 维`
+      : `Exact on ${result.bestNormal.exact}/15 dimensions`;
+  }, [locale, result.bestNormal.exact, result.bestNormal.similarity, result.finalType.code, result.special]);
+
   useEffect(() => {
     let active = true;
 
@@ -128,6 +163,13 @@ export default function ResultScreen({
       active = false;
     };
   }, [shareLink]);
+
+  const scrollToShare = useCallback(() => {
+    document.getElementById('result-share-actions')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
 
   const handleSaveCard = useCallback(async (variant: 'moments' | 'xiaohongshu') => {
     if (variant === 'moments' && !qrCodeDataUrl) {
@@ -227,21 +269,37 @@ export default function ResultScreen({
       <ShareCard
         cardId="share-card-moments"
         result={result}
-        siteHost={host}
         qrCodeDataUrl={qrCodeDataUrl}
         variant="moments"
+        rarityText={rarityText}
+        dna={dna}
+        matchDetail={matchDetail}
         locale={locale}
       />
       <ShareCard
         cardId="share-card-xiaohongshu"
         result={result}
-        siteHost={host}
         qrCodeDataUrl={qrCodeDataUrl}
         variant="xiaohongshu"
+        rarityText={rarityText}
+        dna={dna}
+        matchDetail={matchDetail}
         locale={locale}
       />
 
       <div className="result-wrap card">
+        <div className="result-topbar topbar">
+          <BrandLogo href={null} compact locale={locale} />
+          <div className="result-topbar-actions">
+            <button className="btn-secondary btn-sm" onClick={scrollToShare}>
+              {dictionary.result.shareShortcut}
+            </button>
+            <button className="btn-secondary btn-sm" onClick={onHome}>
+              {dictionary.result.home}
+            </button>
+          </div>
+        </div>
+
         {isShared && (
           <div className="shared-banner">
             <span>{dictionary.result.sharedBanner}</span>
@@ -267,7 +325,13 @@ export default function ResultScreen({
               <div className="type-name">{type.code}（{type.cn}）</div>
               <div className="match">{resultSummary.badge}</div>
               <div className="type-subname">{resultSummary.sub}</div>
-              <div className="result-domain-tag">{host}</div>
+              <button
+                type="button"
+                className="result-share-pill"
+                onClick={scrollToShare}
+              >
+                {dictionary.result.shareShortcut}
+              </button>
             </div>
           </div>
 
@@ -323,7 +387,11 @@ export default function ResultScreen({
           </details>
         </div>
 
-        <div className="result-actions">
+        <div className="result-actions" id="result-share-actions">
+          <div className="result-actions-head">
+            <h3>{dictionary.result.shareSectionTitle}</h3>
+            <p>{dictionary.result.shareSectionDesc}</p>
+          </div>
           {shareStatus && (
             <div className="result-status">
               {shareStatus}
@@ -337,7 +405,10 @@ export default function ResultScreen({
             >
               {dictionary.result.saveMoments}
             </button>
-            <button className="btn-secondary" onClick={() => handleSaveCard('xiaohongshu')}>
+            <button
+              className="btn-secondary btn-xiaohongshu"
+              onClick={() => handleSaveCard('xiaohongshu')}
+            >
               {dictionary.result.saveXiaohongshu}
             </button>
             <button className="btn-secondary" onClick={handleCopyLink}>

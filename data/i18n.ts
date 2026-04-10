@@ -57,6 +57,11 @@ export type SiteDictionary = {
     compareRows: CompareRow[];
     modelSections: ModelSection[];
     faqItems: IntroFaqItem[];
+    historyTitle: string;
+    historyDesc: string;
+    historyOpen: string;
+    historyLatest: string;
+    historyDna: string;
     inspiration: string;
     entertainmentOnly: string;
     poweredBy: string;
@@ -101,6 +106,12 @@ export type SiteDictionary = {
     saveFailed: string;
     copyFailed: string;
     scoreUnit: string;
+    shareShortcut: string;
+    shareSectionTitle: string;
+    shareSectionDesc: string;
+    rarityLabel: string;
+    rarityPending: string;
+    dnaLabel: string;
   };
   typePage: {
     eyebrow: string;
@@ -274,6 +285,11 @@ const zhDictionary: SiteDictionary = {
         a: '每个维度两道题，每题 1-3 分，总分映射成 L/M/H，再去匹配最接近的 15 维人格模式。',
       },
     ],
+    historyTitle: '历史测试结果',
+    historyDesc: '刷新后会回到首页，但你最近测过的人格会保存在这里，随时可以点开回看。',
+    historyOpen: '查看这次结果',
+    historyLatest: '最近一次',
+    historyDna: 'DNA',
     inspiration: '原始灵感：',
     entertainmentOnly: '本站仅供娱乐',
     poweredBy: 'Powered by',
@@ -322,6 +338,12 @@ const zhDictionary: SiteDictionary = {
     saveFailed: '保存失败，请重试',
     copyFailed: '复制失败，请手动复制链接',
     scoreUnit: '分',
+    shareShortcut: '去分享',
+    shareSectionTitle: '保存分享卡片',
+    shareSectionDesc: '往下就是朋友圈卡片和小红书卡片，保存后就能直接发。',
+    rarityLabel: '稀有度',
+    rarityPending: '待统计',
+    dnaLabel: 'DNA 数值',
   },
   typePage: {
     eyebrow: 'SBTI 人格档案',
@@ -409,6 +431,11 @@ const enDictionary: SiteDictionary = {
     compareRows: englishCompareRows,
     modelSections: englishModelSections,
     faqItems: englishFaqItems,
+    historyTitle: 'Recent results',
+    historyDesc: 'Refreshing now returns to the homepage, but your latest local results stay here so you can reopen them anytime.',
+    historyOpen: 'Open result',
+    historyLatest: 'Latest',
+    historyDna: 'DNA',
     inspiration: 'Original inspiration:',
     entertainmentOnly: 'For entertainment only',
     poweredBy: 'Powered by',
@@ -457,6 +484,12 @@ const enDictionary: SiteDictionary = {
     saveFailed: 'Save failed. Please try again.',
     copyFailed: 'Copy failed. Please copy the link manually.',
     scoreUnit: 'pts',
+    shareShortcut: 'Jump to share',
+    shareSectionTitle: 'Save share cards',
+    shareSectionDesc: 'The WeChat and Xiaohongshu cards are right below and ready to save.',
+    rarityLabel: 'Rarity',
+    rarityPending: 'Pending',
+    dnaLabel: 'DNA code',
   },
   typePage: {
     eyebrow: 'SBTI type profile',

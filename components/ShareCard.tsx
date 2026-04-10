@@ -10,18 +10,22 @@ import { ComputeResult } from '@/types';
 interface ShareCardProps {
   cardId: string;
   result: ComputeResult;
-  siteHost: string;
   qrCodeDataUrl?: string;
   variant: 'moments' | 'xiaohongshu';
+  rarityText: string;
+  dna: string;
+  matchDetail: string;
   locale: LocaleCode;
 }
 
 export default function ShareCard({
   cardId,
   result,
-  siteHost,
   qrCodeDataUrl,
   variant,
+  rarityText,
+  dna,
+  matchDetail,
   locale,
 }: ShareCardProps) {
   const dictionary = getDictionary(locale);
@@ -74,25 +78,11 @@ export default function ShareCard({
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
             gap: 18,
           }}
         >
           <BrandLogo href={null} compact locale={locale} />
-          <div
-            style={{
-              padding: '11px 18px',
-              borderRadius: 999,
-              border: '1px solid rgba(23, 59, 45, 0.1)',
-              background: 'rgba(255,255,255,.7)',
-              color: '#2c4b3b',
-              fontSize: 20,
-              fontWeight: 800,
-            }}
-          >
-            {siteHost}
-          </div>
         </div>
 
         <div
@@ -231,7 +221,7 @@ export default function ShareCard({
                   color: '#395649',
                 }}
               >
-                {siteHost}
+                {matchDetail}
               </p>
             </div>
 
@@ -303,14 +293,32 @@ export default function ShareCard({
                 </div>
               ) : null}
 
-              <div style={{ display: 'grid', gap: 10 }}>
-                <div style={{ fontSize: 26, fontWeight: 900, color: '#183c2d' }}>
-                  {isMoments ? dictionary.result.copyShareLink : dictionary.result.saveXiaohongshu}
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#5e7a6b' }}>
+                    {dictionary.result.rarityLabel}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 34, fontWeight: 900, color: '#183c2d' }}>
+                    {rarityText}
+                  </div>
                 </div>
-                <div style={{ fontSize: 21, lineHeight: 1.8, color: '#4f6c5e' }}>
-                  {isMoments
-                    ? dictionary.result.dnaHint
-                    : dictionary.result.noteNormal}
+
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#5e7a6b' }}>
+                    {dictionary.result.dnaLabel}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 24,
+                      lineHeight: 1.65,
+                      color: '#264535',
+                      fontWeight: 900,
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {dna}
+                  </div>
                 </div>
               </div>
             </div>

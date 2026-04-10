@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { ComputeResult, Level, Question, SiteStats } from '@/types';
+import { ComputeResult, Level, Question, SavedResultEntry, SiteStats } from '@/types';
 import { LocaleCode, detectLocaleFromPath } from '@/data/brand';
 import { computeResult, getVisibleQuestions, buildQuestionSet } from '@/data/scoring';
 import { dimensionOrder } from '@/data/dimensions';
 import { encodeDna } from '@/data/dna';
 import { TYPE_LIBRARY } from '@/data/types';
 import {
+  appendResultHistory,
   clearQuizProgress,
-  loadLatestResult,
+  loadResultHistory,
   loadQuizProgress,
   loadQuizView,
   saveLatestResult,
@@ -83,6 +84,7 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
   const [result, setResult] = useState<ComputeResult | null>(null);
   const [sharedResult, setSharedResult] = useState<ComputeResult | null>(null);
   const [stats, setStats] = useState<SiteStats | null>(null);
+  const [history, setHistory] = useState<SavedResultEntry[]>([]);
 
   const visibleQuestions = useMemo(
     () => (screen === 'test' ? getVisibleQuestions(shuffledQuestions, answers) : []),
@@ -90,6 +92,8 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
   );
 
   useEffect(() => {
+    setHistory(loadResultHistory());
+
     const shared = parseSharedResult();
     if (shared) {
       setSharedResult(shared);
@@ -102,7 +106,6 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
 
     const lastView = loadQuizView();
     const storedProgress = loadQuizProgress();
-    const latestResult = loadLatestResult();
 
     if (lastView === 'test' && storedProgress) {
       setAnswers(storedProgress.answers);
@@ -112,11 +115,6 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
       );
       setScreen('test');
       return;
-    }
-
-    if (lastView === 'result' && latestResult) {
-      setResult(latestResult);
-      setScreen('result');
     }
   }, []);
 
@@ -212,7 +210,9 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
 
   const handleSubmit = useCallback(() => {
     const nextResult = computeResult(answers);
+    const nextHistory = appendResultHistory(nextResult);
     setResult(nextResult);
+    setHistory(nextHistory);
     setSharedResult(null);
     setCurrentQuestionId(null);
     setScreen('result');
@@ -251,11 +251,30 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
     setScreen('intro');
   }, []);
 
+  const openHistoryResult = useCallback((entry: SavedResultEntry) => {
+    setSharedResult(null);
+    setResult(entry.result);
+    setCurrentQuestionId(null);
+    clearQuizProgress();
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    setScreen('result');
+  }, []);
+
   const isShared = sharedResult !== null;
 
   return (
     <div className="shell">
-      {screen === 'intro' && <IntroScreen onStart={startTest} stats={stats} locale={activeLocale} />}
+      {screen === 'intro' && (
+        <IntroScreen
+          onStart={startTest}
+          onOpenHistory={openHistoryResult}
+          history={history}
+          stats={stats}
+          locale={activeLocale}
+        />
+      )}
       {screen === 'test' && (
         <TestScreen
           questions={visibleQuestions}
@@ -275,6 +294,7 @@ export default function QuizApp({ locale = 'zh' }: QuizAppProps) {
           isShared={isShared}
           onRestart={startTest}
           onHome={showIntro}
+          stats={stats}
           locale={activeLocale}
         />
       )}

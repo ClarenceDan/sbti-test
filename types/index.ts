@@ -61,6 +61,14 @@ export interface ComputeResult {
   secondaryType: RankedType | null;
 }
 
+export interface SavedResultEntry {
+  id: string;
+  createdAt: number;
+  dna: string;
+  typeCode: string;
+  result: ComputeResult;
+}
+
 export interface DnaPayload {
   rawScores: Record<string, number>;
   drunkTriggered: boolean;
