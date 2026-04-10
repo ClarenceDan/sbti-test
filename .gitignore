@@ -86,6 +86,16 @@ web_modules/
 # Next.js build output
 .next
 out
+.open-next/
+.playwright-mcp/
+.wrangler/
+
+# Local tool settings
+.claude/
+
+# Local dev logs
+.next-*.log
+.next-*.err
 
 # Nuxt.js build / generate output
 .nuxt
