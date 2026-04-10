@@ -1,20 +1,26 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
-import { ComputeResult, Level } from '@/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LocaleCode, withLocalePath } from '@/data/brand';
+import { getDictionary } from '@/data/i18n';
+import { useRuntimeSite } from '@/lib/use-runtime-site';
+import { ComputeResult } from '@/types';
 import { TYPE_IMAGES } from '@/data/types';
 import { dimensionMeta, DIM_EXPLANATIONS, dimensionOrder } from '@/data/dimensions';
+import { encodeDna } from '@/data/dna';
+import { createStyledQrDataUrl } from '@/lib/styled-qr';
 import ShareCard from './ShareCard';
 
 interface ResultScreenProps {
   result: ComputeResult;
+  isShared?: boolean;
   onRestart: () => void;
   onHome: () => void;
-  siteUrl?: string;
+  locale: LocaleCode;
 }
 
 function buildShareLink(result: ComputeResult, siteUrl: string): string {
-  const dims = dimensionOrder.map(dim => result.levels[dim]).join('');
+  const dims = dimensionOrder.map((dim) => result.levels[dim]).join('');
   const params = new URLSearchParams({
     t: result.finalType.code,
     d: dims,
@@ -22,63 +28,227 @@ function buildShareLink(result: ComputeResult, siteUrl: string): string {
   return `${siteUrl}?${params.toString()}`;
 }
 
-export default function ResultScreen({ result, onRestart, onHome, siteUrl }: ResultScreenProps) {
+function fallbackCopyText(text: string) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
+export default function ResultScreen({
+  result,
+  isShared,
+  onRestart,
+  onHome,
+  locale,
+}: ResultScreenProps) {
+  const dictionary = getDictionary(locale);
   const type = result.finalType;
   const imageSrc = TYPE_IMAGES[type.code];
-  const [shareStatus, setShareStatus] = useState<string>('');
-  const url = siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+  const [shareStatus, setShareStatus] = useState('');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+  const { host, origin } = useRuntimeSite();
 
-  const handleSaveCard = useCallback(async () => {
+  const sharePageUrl = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return `${origin}${withLocalePath(locale, '/')}`;
+    }
+    return `${origin}${window.location.pathname}`;
+  }, [locale, origin]);
+
+  const shareLink = useMemo(() => buildShareLink(result, sharePageUrl), [result, sharePageUrl]);
+  const dna = useMemo(() => encodeDna({
+    rawScores: result.rawScores,
+    drunkTriggered: result.finalType.code === 'DRUNK',
+  }), [result]);
+  const cpInviteLink = useMemo(
+    () => `${origin}${withLocalePath(locale, '/cp')}?a=${dna}`,
+    [dna, locale, origin]
+  );
+
+  const resultSummary = useMemo(() => {
+    if (result.finalType.code === 'DRUNK') {
+      return {
+        kicker: locale === 'zh' || locale === 'tw' || locale === 'hk' ? '隐藏人格已激活' : 'Hidden type unlocked',
+        badge: locale === 'zh' || locale === 'tw' || locale === 'hk'
+          ? '匹配度 100% · 酒精异常因子已接管'
+          : '100% match · alcohol override active',
+        sub: locale === 'zh' || locale === 'tw' || locale === 'hk'
+          ? '乙醇亲和性过强，系统已直接跳过常规人格审判。'
+          : 'Your ethanol affinity was too strong, so the system skipped the normal route.',
+      };
+    }
+
+    if (result.special) {
+      return {
+        kicker: locale === 'zh' || locale === 'tw' || locale === 'hk' ? '系统强制兜底' : 'Fallback mode triggered',
+        badge: locale === 'zh' || locale === 'tw' || locale === 'hk'
+          ? `标准人格库最高匹配仅 ${result.bestNormal.similarity}%`
+          : `Top standard match only reached ${result.bestNormal.similarity}%`,
+        sub: locale === 'zh' || locale === 'tw' || locale === 'hk'
+          ? '标准人格库对你的脑回路集体罢工了，于是系统把你强制分配给了 HHHH。'
+          : 'The standard library gave up on your brain pattern, so you were assigned to HHHH.',
+      };
+    }
+
+    return {
+      kicker: locale === 'zh' || locale === 'tw' || locale === 'hk' ? '你的主类型' : 'Your main type',
+      badge: locale === 'zh' || locale === 'tw' || locale === 'hk'
+        ? `匹配度 ${result.bestNormal.similarity}% · 精准命中 ${result.bestNormal.exact}/15 维`
+        : `${result.bestNormal.similarity}% match · exact on ${result.bestNormal.exact}/15 dimensions`,
+      sub: locale === 'zh' || locale === 'tw' || locale === 'hk'
+        ? '维度命中度较高，当前结果可视为你的第一人格画像。'
+        : 'Your dimension pattern landed close enough to treat this as your main profile.',
+    };
+  }, [locale, result.bestNormal.exact, result.bestNormal.similarity, result.finalType.code, result.special]);
+
+  useEffect(() => {
+    let active = true;
+
+    import('qrcode')
+      .then((mod) => createStyledQrDataUrl((mod.default ?? mod), shareLink))
+      .then((dataUrl) => {
+        if (active) {
+          setQrCodeDataUrl(dataUrl);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setQrCodeDataUrl('');
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [shareLink]);
+
+  const handleSaveCard = useCallback(async (variant: 'moments' | 'xiaohongshu') => {
+    if (variant === 'moments' && !qrCodeDataUrl) {
+      setShareStatus(dictionary.result.qrPending);
+      return;
+    }
+
     setShareStatus('');
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const el = document.getElementById('share-card');
+      const el = document.getElementById(`share-card-${variant}`);
       if (!el) return;
+
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
         backgroundColor: null,
       });
+
       const link = document.createElement('a');
-      link.download = `SBTI-${type.code}.png`;
+      link.download = `SBTI-${type.code}-${variant}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-      setShareStatus('图片已保存');
+      setShareStatus(
+        variant === 'moments'
+          ? dictionary.result.momentsSaved
+          : dictionary.result.xiaohongshuSaved
+      );
+      fetch('/api/analytics/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: variant, typeCode: type.code }),
+      }).catch(() => undefined);
     } catch {
-      setShareStatus('保存失败，请重试');
+      setShareStatus(dictionary.result.saveFailed);
     }
-  }, [type.code]);
+  }, [dictionary.result.momentsSaved, dictionary.result.qrPending, dictionary.result.saveFailed, dictionary.result.xiaohongshuSaved, qrCodeDataUrl, type.code]);
 
-  const handleShare = useCallback(async () => {
+  const handleCopyLink = useCallback(async () => {
     setShareStatus('');
-    const shareLink = buildShareLink(result, url);
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `我的SBTI人格是 ${type.code}（${type.cn}）`,
-          text: `${type.intro} 快来测测你的SBTI人格！`,
-          url: shareLink,
-        });
-        return;
-      } catch {
-        // User cancelled or failed, fall through to copy
-      }
-    }
-
     try {
       await navigator.clipboard.writeText(shareLink);
-      setShareStatus('链接已复制到剪贴板');
+      setShareStatus(dictionary.result.shareCopied);
+      fetch('/api/analytics/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: 'result_link', typeCode: type.code }),
+      }).catch(() => undefined);
     } catch {
-      setShareStatus('复制失败，请手动复制');
+      try {
+        fallbackCopyText(shareLink);
+        setShareStatus(dictionary.result.shareCopied);
+        fetch('/api/analytics/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: 'result_link', typeCode: type.code }),
+        }).catch(() => undefined);
+      } catch {
+        setShareStatus(dictionary.result.copyFailed);
+      }
     }
-  }, [result, type, url]);
+  }, [dictionary.result.copyFailed, dictionary.result.shareCopied, shareLink, type.code]);
+
+  const handleCopyDna = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(dna);
+      setShareStatus(dictionary.result.dnaCopied);
+    } catch {
+      fallbackCopyText(dna);
+      setShareStatus(dictionary.result.dnaCopied);
+    }
+    fetch('/api/analytics/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: 'dna', typeCode: type.code }),
+    }).catch(() => undefined);
+  }, [dictionary.result.dnaCopied, dna, type.code]);
+
+  const handleCopyCpInvite = useCallback(async () => {
+    const inviteText = `我测了SBTI人格测试，来看看我们的CP化学反应如何👇\n${cpInviteLink}`;
+    try {
+      await navigator.clipboard.writeText(inviteText);
+      setShareStatus(dictionary.result.cpInviteCopied);
+    } catch {
+      fallbackCopyText(inviteText);
+      setShareStatus(dictionary.result.cpInviteCopied);
+    }
+    fetch('/api/analytics/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: 'cp_invite', typeCode: type.code }),
+    }).catch(() => undefined);
+  }, [cpInviteLink, dictionary.result.cpInviteCopied, type.code]);
 
   return (
     <section className="screen active">
-      <ShareCard result={result} siteUrl={url} />
+      <ShareCard
+        cardId="share-card-moments"
+        result={result}
+        siteHost={host}
+        qrCodeDataUrl={qrCodeDataUrl}
+        variant="moments"
+        locale={locale}
+      />
+      <ShareCard
+        cardId="share-card-xiaohongshu"
+        result={result}
+        siteHost={host}
+        qrCodeDataUrl={qrCodeDataUrl}
+        variant="xiaohongshu"
+        locale={locale}
+      />
 
       <div className="result-wrap card">
+        {isShared && (
+          <div className="shared-banner">
+            <span>{dictionary.result.sharedBanner}</span>
+            <button className="btn-primary btn-sm" onClick={onRestart}>{dictionary.result.sharedAction}</button>
+          </div>
+        )}
+
         <div className="result-layout">
           <div className="result-top">
             <div className={`poster-box${!imageSrc ? ' no-image' : ''}`}>
@@ -93,31 +263,37 @@ export default function ResultScreen({ result, onRestart, onHome, siteUrl }: Res
             </div>
 
             <div className="type-box">
-              <div className="type-kicker">{result.modeKicker}</div>
+              <div className="type-kicker">{resultSummary.kicker}</div>
               <div className="type-name">{type.code}（{type.cn}）</div>
-              <div className="match">{result.badge}</div>
-              <div className="type-subname">{result.sub}</div>
+              <div className="match">{resultSummary.badge}</div>
+              <div className="type-subname">{resultSummary.sub}</div>
+              <div className="result-domain-tag">{host}</div>
             </div>
           </div>
 
           <div className="analysis-box">
-            <h3>该人格的简单解读</h3>
+            <h3>{dictionary.result.simpleReading}</h3>
             <p>{type.desc}</p>
           </div>
 
           <div className="dim-box">
-            <h3>十五维度评分</h3>
+            <h3>{dictionary.result.scoreTitle}</h3>
             <div className="dim-list">
-              {dimensionOrder.map(dim => {
+              {dimensionOrder.map((dim) => {
                 const level = result.levels[dim];
-                const explanation = DIM_EXPLANATIONS[dim][level];
+                const rawScore = result.rawScores[dim];
+                if (!level) return null;
+                const explanation = DIM_EXPLANATIONS[dim]?.[level];
                 return (
                   <div key={dim} className="dim-item">
                     <div className="dim-item-top">
                       <div className="dim-item-name">{dimensionMeta[dim].name}</div>
-                      <div className="dim-item-score">{level} / {result.rawScores[dim]}分</div>
+                      <div className="dim-item-score">
+                        <span className={`level-badge level-${level.toLowerCase()}`}>{level}</span>
+                        {rawScore !== undefined ? ` / ${rawScore}${dictionary.result.scoreUnit}` : ''}
+                      </div>
                     </div>
-                    <p>{explanation}</p>
+                    {explanation && <p>{explanation}</p>}
                   </div>
                 );
               })}
@@ -125,41 +301,59 @@ export default function ResultScreen({ result, onRestart, onHome, siteUrl }: Res
           </div>
 
           <div className="note-box">
-            <h3>友情提示</h3>
+            <h3>{dictionary.result.noteTitle}</h3>
             <p>
-              {result.special
-                ? '本测试仅供娱乐。隐藏人格和傻乐兜底都属于作者故意埋的损招，请勿把它当成医学、心理学、相学、命理学或灵异学依据。'
-                : '本测试仅供娱乐，别拿它当诊断、面试、相亲、分手、招魂、算命或人生判决书。你可以笑，但别太当真。'}
+              {result.special ? dictionary.result.noteSpecial : dictionary.result.noteNormal}
             </p>
           </div>
 
+          <div className="dna-box">
+            <h3>{dictionary.result.dnaTitle}</h3>
+            <p className="dna-code">🧬 {dna}</p>
+            <p className="dna-copy">{dictionary.result.dnaHint}</p>
+          </div>
+
           <details className="author-box">
-            <summary>作者的话</summary>
+            <summary>{dictionary.result.authorTitle}</summary>
             <div className="author-content">
-              <p>本测试首发于b站up主蛆肉儿串儿（UID417038183），初衷是劝诫一位爱喝酒的朋友戒酒。</p>
-              <p>由于作者的人格是SHIT愤世者，所以平等的攻击了各位，在此抱歉！！不过我是一个绝世大美女，你们一定会原谅我，有B站的朋友们也可以关注我。</p>
-              <p>关于这个测试，我没法很好的平衡娱乐和专业性，因此对于一些人格的阐释较为模糊或完全不准（如屌丝可能并非真的屌丝），如有冒犯非常抱歉！！</p>
-              <p>再鉴于时间精力有限，就随便搞了一个先这样玩玩，后续会慢慢完善修改的，总之好玩为主，还请不要用于盈利呀。</p>
+              {dictionary.result.authorLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
             </div>
           </details>
         </div>
 
         <div className="result-actions">
           {shareStatus && (
-            <div style={{
-              textAlign: 'center',
-              fontSize: 14,
-              color: 'var(--accent)',
-              marginBottom: 8,
-            }}>
+            <div className="result-status">
               {shareStatus}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button className="btn-secondary" onClick={onRestart}>重新测试</button>
-            <button className="btn-secondary" onClick={handleSaveCard}>保存卡片</button>
-            <button className="btn-primary" onClick={handleShare}>分享结果</button>
-            <button className="btn-secondary" onClick={onHome}>回到首页</button>
+          <div className="result-action-group">
+            <button
+              className="btn-primary"
+              disabled={!qrCodeDataUrl}
+              onClick={() => handleSaveCard('moments')}
+            >
+              {dictionary.result.saveMoments}
+            </button>
+            <button className="btn-secondary" onClick={() => handleSaveCard('xiaohongshu')}>
+              {dictionary.result.saveXiaohongshu}
+            </button>
+            <button className="btn-secondary" onClick={handleCopyLink}>
+              {dictionary.result.copyShareLink}
+            </button>
+            <button className="btn-secondary" onClick={handleCopyDna}>
+              {dictionary.result.copyDna}
+            </button>
+            <button className="btn-secondary" onClick={handleCopyCpInvite}>
+              {dictionary.result.copyCpInvite}
+            </button>
+            <a className="btn-secondary" href={cpInviteLink}>
+              {dictionary.result.goCp}
+            </a>
+            <button className="btn-secondary" onClick={onRestart}>{dictionary.result.restart}</button>
+            <button className="btn-secondary" onClick={onHome}>{dictionary.result.home}</button>
           </div>
         </div>
       </div>

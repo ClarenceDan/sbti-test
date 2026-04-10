@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next';
+import { getRequestSite } from '@/lib/site';
 
-export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sbti.unun.dev';
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const { origin } = await getRequestSite();
 
   return {
     rules: [
@@ -10,6 +11,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
       },
     ],
-    sitemap: `${siteUrl}/sitemap.xml`,
+    sitemap: `${origin}/sitemap.xml`,
   };
 }

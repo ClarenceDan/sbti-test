@@ -2,6 +2,7 @@ import { Level, ComputeResult, RankedType, TypeInfo, Question } from '@/types';
 import { questions, specialQuestions } from './questions';
 import { TYPE_LIBRARY, NORMAL_TYPES } from './types';
 import { dimensionMeta, dimensionOrder } from './dimensions';
+import { decodeDna } from './dna';
 
 const DRUNK_TRIGGER_QUESTION_ID = 'drink_gate_q2';
 
@@ -52,13 +53,30 @@ export function getVisibleQuestions(
 
 export function computeResult(answers: Record<string, number>): ComputeResult {
   const rawScores: Record<string, number> = {};
-  const levels: Record<string, Level> = {};
 
   Object.keys(dimensionMeta).forEach(dim => { rawScores[dim] = 0; });
 
   questions.forEach(q => {
     if (q.dim) rawScores[q.dim] += Number(answers[q.id] || 0);
   });
+
+  return computeResultFromRawScores({
+    rawScores,
+    drunkTriggered: answers[DRUNK_TRIGGER_QUESTION_ID] === 2,
+  });
+}
+
+export function computeResultFromRawScores(input: {
+  rawScores: Record<string, number>;
+  drunkTriggered?: boolean;
+} | string): ComputeResult {
+  const decoded = typeof input === 'string' ? decodeDna(input) : input;
+  if (!decoded) {
+    throw new Error('Invalid DNA payload');
+  }
+
+  const rawScores = { ...decoded.rawScores };
+  const levels: Record<string, Level> = {};
 
   Object.entries(rawScores).forEach(([dim, score]) => {
     levels[dim] = sumToLevel(score);
@@ -91,7 +109,7 @@ export function computeResult(answers: Record<string, number>): ComputeResult {
   });
 
   const bestNormal = ranked[0];
-  const drunkTriggered = answers[DRUNK_TRIGGER_QUESTION_ID] === 2;
+  const drunkTriggered = Boolean(decoded.drunkTriggered);
 
   let finalType: TypeInfo;
   let modeKicker = '你的主类型';

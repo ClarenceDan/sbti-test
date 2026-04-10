@@ -1,64 +1,76 @@
-import type { Metadata } from 'next';
 import './globals.css';
+import type { Metadata } from 'next';
+import { getDictionary } from '@/data/i18n';
+import { buildMetadataBase } from '@/lib/seo';
+import { getRequestSite } from '@/lib/site';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sbti.unun.dev';
+export async function generateMetadata(): Promise<Metadata> {
+  const { origin, host } = await getRequestSite();
+  const dictionary = getDictionary('zh');
 
-export const metadata: Metadata = {
-  title: 'SBTI 人格测试 - 比MBTI更懂你的灵魂测试',
-  description:
-    'SBTI人格测试是一款比MBTI更懂你的搞笑人格测试。30道趣味测试题，15个心理维度，27种独特人格类型，看看你是拿捏者、送钱者还是屌丝？纯属娱乐，切勿当真。',
-  keywords: [
-    'SBTI', '人格测试', 'MBTI', '搞笑测试', '性格测试',
-    '心理测试', '人格类型', '趣味测试', '在线测试',
-  ],
-  authors: [{ name: '蛆肉儿串儿', url: 'https://space.bilibili.com/417038183' }],
-  creator: '蛆肉儿串儿',
-  metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: '/',
-  },
-  openGraph: {
-    title: 'SBTI 人格测试 - 比MBTI更懂你的灵魂测试',
-    description:
-      '30道趣味测试题，15个心理维度，27种独特人格类型。快来测测你的SBTI人格！',
-    url: siteUrl,
-    siteName: 'SBTI 人格测试',
-    locale: 'zh_CN',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'SBTI 人格测试 - 比MBTI更懂你的灵魂测试',
-    description:
-      '30道趣味测试题，15个心理维度，27种独特人格类型。快来测测你的SBTI人格！',
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+  return {
+    title: {
+      default: `${dictionary.siteTitle} | ${dictionary.brandSubtitle}`,
+      template: `%s | ${dictionary.siteTitle}`,
+    },
+    description: dictionary.siteDescription,
+    keywords: [
+      'SBTI',
+      '人格测试',
+      'MBTI',
+      'personality test',
+      'personality types',
+      host,
+    ],
+    authors: [{ name: host, url: origin }],
+    creator: host,
+    metadataBase: buildMetadataBase(origin),
+    openGraph: {
+      siteName: dictionary.siteTitle,
+      locale: dictionary.ogLocale,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+    },
+    icons: {
+      icon: '/favicon.svg',
+    },
+    robots: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
-  },
-};
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { origin, host } = await getRequestSite();
+  const dictionary = getDictionary('zh');
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
-    name: 'SBTI 人格测试',
-    description: '比MBTI更懂你的搞笑人格测试，30道趣味测试题，27种独特人格类型',
-    url: siteUrl,
+    name: dictionary.siteTitle,
+    description: dictionary.siteDescription,
+    url: origin,
     applicationCategory: 'Entertainment',
     operatingSystem: 'Web Browser',
     inLanguage: 'zh-CN',
+    publisher: {
+      '@type': 'Organization',
+      name: host,
+      url: origin,
+    },
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -67,9 +79,8 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="zh-CN">
+    <html lang={dictionary.htmlLang}>
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

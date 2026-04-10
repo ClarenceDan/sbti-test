@@ -1,159 +1,252 @@
 'use client';
 
-import { TYPE_LIBRARY, NORMAL_TYPES } from '@/data/types';
-import { dimensionMeta, dimensionOrder } from '@/data/dimensions';
+import Image from 'next/image';
+import Link from 'next/link';
+import BrandLogo from '@/components/BrandLogo';
+import {
+  AUTHOR_NAME,
+  AUTHOR_URL,
+  LANGUAGES,
+  LocaleCode,
+  POPULAR_TYPES,
+  RARE_TYPES,
+  getTypeSlug,
+  withLocalePath,
+} from '@/data/brand';
+import { getDictionary } from '@/data/i18n';
+import { TYPE_LIBRARY, TYPE_IMAGES, NORMAL_TYPES } from '@/data/types';
+import { useRuntimeSite } from '@/lib/use-runtime-site';
+import { SiteStats } from '@/types';
 
 interface IntroScreenProps {
   onStart: () => void;
+  stats?: SiteStats | null;
+  locale: LocaleCode;
 }
 
-const FAQ_ITEMS = [
-  {
-    q: 'SBTI 是什么？',
-    a: 'SBTI（Soul-Based Temperament Index）是一款基于中国互联网文化的人格测试，通过 15 个维度分析你的性格特征。它用更接地气的方式，帮你认识那个可能连你自己都没发现过的"真实人格"。',
-  },
-  {
-    q: 'SBTI 和 MBTI 有什么区别？',
-    a: 'MBTI 基于荣格心理学，使用 4 个二分维度（如 E/I、S/N）将人分为 16 型。SBTI 使用 15 个连续维度（每维度 3 档：L/M/H），从自我、情感、态度、行动、社交五个模型全面刻画人格，产出 25 种标准人格 + 2 种隐藏人格。',
-  },
-  {
-    q: '测试结果准吗？',
-    a: '本测试纯属娱乐，结果仅供参考和社交分享。请勿将其用于学术、职业、医学诊断或人生重大决策。但如果你测出来笑了，那就值了。',
-  },
-  {
-    q: '测试需要多长时间？',
-    a: '大约 3-5 分钟，共 30+ 道题。题目会随机打乱顺序，每次体验略有不同。',
-  },
-  {
-    q: '可以重复测试吗？',
-    a: '当然可以！每次测试的题目顺序都会随机打乱，你可以多测几次看看结果是否一致。不过请记住：人格不会因为你多测几次就改变。',
-  },
-];
+export default function IntroScreen({ onStart, stats, locale }: IntroScreenProps) {
+  const dictionary = getDictionary(locale);
+  const { host } = useRuntimeSite();
+  const totalCompletions = stats?.totalCompletions ?? 16790;
+  const popularTypes = stats?.popularTypes ?? POPULAR_TYPES.map((item, index) => ({
+    rank: index + 1,
+    code: item.code,
+    percent: item.percent,
+    count: 0,
+  }));
+  const rareTypes = stats?.rareTypes ?? RARE_TYPES.map((item) => ({
+    code: item.code,
+    percent: item.percent,
+    count: 0,
+  }));
 
-const MBTI_COMPARE = [
-  { aspect: '维度数量', sbti: '15 个连续维度', mbti: '4 个二分维度' },
-  { aspect: '人格类型', sbti: '25 + 2 隐藏型', mbti: '16 型' },
-  { aspect: '评分方式', sbti: '每维度 L/M/H 三档', mbti: '二选一强制分类' },
-  { aspect: '理论背景', sbti: '互联网文化 + 人格模型', mbti: '荣格认知功能' },
-  { aspect: '风格定位', sbti: '搞笑 + 社交娱乐', mbti: '职场 + 自我探索' },
-];
-
-const DIM_GROUPS = [
-  { label: '自我模型', dims: ['S1', 'S2', 'S3'] },
-  { label: '情感模型', dims: ['E1', 'E2', 'E3'] },
-  { label: '态度模型', dims: ['A1', 'A2', 'A3'] },
-  { label: '行动驱力', dims: ['Ac1', 'Ac2', 'Ac3'] },
-  { label: '社交模型', dims: ['So1', 'So2', 'So3'] },
-];
-
-export default function IntroScreen({ onStart }: IntroScreenProps) {
   return (
     <section className="screen active">
-      {/* Hero */}
-      <div className="hero card hero-minimal">
-        <h1>MBTI已经过时，SBTI来了。</h1>
-        <p className="hero-sub">
-          15 个维度 · 25 种人格 · 2 种隐藏人格
-          <br />
-          用最接地气的方式，测出你的灵魂画像
-        </p>
-        <div className="hero-actions hero-actions-single">
-          <button className="btn-primary" onClick={onStart}>开始测试</button>
-        </div>
-        <div className="intro-credits">
-          <span>
-            原作者：
-            <a href="https://space.bilibili.com/417038183" target="_blank" rel="noopener noreferrer">B站@蛆肉儿串儿</a>
-          </span>
-          <span>托管：Cloudflare Workers</span>
-        </div>
-      </div>
-
-      {/* What is SBTI */}
-      <div className="card" style={{ padding: 28, marginTop: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>什么是 SBTI？</h2>
-        <p style={{ lineHeight: 1.8, color: 'var(--muted)', margin: 0 }}>
-          SBTI（Soul-Based Temperament Index）是一款源自中文互联网文化的搞笑人格测试。它从自我、情感、态度、行动、社交五个核心模型出发，
-          通过 15 个维度对人格进行细粒度刻画。不同于传统心理测试的严肃面孔，SBTI 用接地气的题目和犀利的解读，
-          让你在笑声中看到那个可能连自己都不太了解的自己。已超过百万人完成测试。
-        </p>
-      </div>
-
-      {/* Dimensions */}
-      <div className="card" style={{ padding: 28, marginTop: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>15 个测试维度</h2>
-        <div className="intro-dim-groups">
-          {DIM_GROUPS.map(group => (
-            <div key={group.label} className="intro-dim-group">
-              <div className="intro-dim-group-label">{group.label}</div>
-              <div className="intro-dim-items">
-                {group.dims.map(dim => (
-                  <span key={dim} className="intro-dim-tag">
-                    {dimensionMeta[dim].name}
-                  </span>
-                ))}
-              </div>
-            </div>
+      <div className="site-header">
+        <nav className="lang-switch" aria-label="Language">
+          {LANGUAGES.map((language) => (
+            <Link
+              key={language.code}
+              href={withLocalePath(language.code, '/')}
+              className={`lang-link${language.code === locale ? ' active' : ''}`}
+            >
+              {language.label}
+            </Link>
           ))}
-        </div>
+        </nav>
       </div>
 
-      {/* SBTI vs MBTI */}
-      <div className="card" style={{ padding: 28, marginTop: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>SBTI vs MBTI</h2>
-        <div className="compare-table">
-          <div className="compare-row compare-header">
-            <div>对比项</div>
-            <div>SBTI</div>
-            <div>MBTI</div>
+      <div className="intro-grid">
+        <section className="hero-stage card">
+          <div className="hero-brand-line">
+            <BrandLogo compact locale={locale} />
+            <span className="hero-chip">{dictionary.intro.heroChip}</span>
           </div>
-          {MBTI_COMPARE.map(row => (
-            <div key={row.aspect} className="compare-row">
-              <div className="compare-aspect">{row.aspect}</div>
-              <div className="compare-sbti">{row.sbti}</div>
-              <div className="compare-mbti">{row.mbti}</div>
+
+          <div className="hero-copy">
+            <p className="hero-kicker">🧪 {dictionary.intro.heroKicker}</p>
+            <h1 className="hero-title">
+              <span>{dictionary.intro.heroTitleMain}</span>
+              <em>{dictionary.intro.heroTitleAccent}</em>
+            </h1>
+            <p className="hero-lead">{dictionary.intro.heroLead}</p>
+            <p className="hero-subcopy">{dictionary.intro.heroSubcopy}</p>
+          </div>
+
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <strong>{totalCompletions.toLocaleString('en-US')}</strong>
+              <span>{dictionary.intro.statCompleted}</span>
             </div>
-          ))}
-        </div>
+            <div className="hero-stat">
+              <strong>{dictionary.intro.statDurationValue}</strong>
+              <span>{dictionary.intro.statDurationLabel}</span>
+            </div>
+            <div className="hero-stat">
+              <strong>{dictionary.intro.statLocalValue}</strong>
+              <span>{dictionary.intro.statLocalLabel}</span>
+            </div>
+          </div>
+
+          <div className="hero-actions">
+            <button className="btn-primary" onClick={onStart}>
+              {dictionary.intro.startTest}
+            </button>
+            <a href="#type-gallery" className="btn-secondary">
+              {dictionary.intro.browseTypes}
+            </a>
+          </div>
+        </section>
+
+        <aside className="ranking-panel card">
+          <div className="ranking-head">
+            <div>
+              <p>👑 {dictionary.intro.rankingTitle}</p>
+              <strong>
+                {totalCompletions.toLocaleString('en-US')} {dictionary.intro.rankingMeasuredSuffix}
+              </strong>
+            </div>
+            <span>{dictionary.intro.rankingRealtime}</span>
+          </div>
+
+          <div className="ranking-list">
+            {popularTypes.map((item) => {
+              const info = TYPE_LIBRARY[item.code];
+              const imageSrc = TYPE_IMAGES[item.code];
+              return (
+                <div className="ranking-item" key={item.code}>
+                  <div className="ranking-rank">{item.rank <= 3 ? ['🥇', '🥈', '🥉'][item.rank - 1] : item.rank}</div>
+                  {imageSrc && (
+                    <Image
+                      src={imageSrc}
+                      alt={item.code}
+                      width={64}
+                      height={64}
+                      className="ranking-avatar"
+                    />
+                  )}
+                  <div className="ranking-copy">
+                    <div className="ranking-title">
+                      <strong>{item.code}</strong>
+                      <span>{info.cn}</span>
+                      <em>{item.percent}</em>
+                    </div>
+                    <p>{info.intro}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rare-card">
+            <p>🎲 {dictionary.intro.rareTitle}</p>
+            <div className="rare-grid">
+              {rareTypes.map((item) => {
+                const info = TYPE_LIBRARY[item.code];
+                return (
+                  <div key={item.code} className="rare-item">
+                    <strong>{item.code}</strong>
+                    <span>{info.cn}</span>
+                    <em>{item.percent}</em>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {/* Type Gallery */}
-      <div className="card" style={{ padding: 28, marginTop: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>全部人格类型</h2>
-        <div className="type-gallery">
-          {NORMAL_TYPES.map(t => {
-            const info = TYPE_LIBRARY[t.code];
+      <section className="section-card card intro-blurb">
+        <p>{dictionary.intro.blurb}</p>
+      </section>
+
+      <section className="section-card card">
+        <div className="section-heading">
+          <h2>{dictionary.intro.whatIsTitle}</h2>
+          <p>{dictionary.intro.whatIsDesc}</p>
+        </div>
+
+        <div className="model-grid">
+          {dictionary.intro.modelSections.map((item) => (
+            <article key={item.title} className="model-card">
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section-card card" id="type-gallery">
+        <div className="section-heading">
+          <h2>{dictionary.intro.typeGalleryTitle}</h2>
+          <p>{dictionary.intro.typeGalleryDesc}</p>
+        </div>
+
+        <div className="type-gallery-grid">
+          {NORMAL_TYPES.map((type) => {
+            const info = TYPE_LIBRARY[type.code];
             return (
-              <div key={t.code} className="type-gallery-item">
-                <div className="type-gallery-code">{t.code}</div>
-                <div className="type-gallery-cn">{info?.cn || ''}</div>
-              </div>
+              <Link
+                href={withLocalePath(locale, `/types/${getTypeSlug(type.code)}`)}
+                key={type.code}
+                className="type-gallery-card"
+              >
+                <strong>{type.code}</strong>
+                <span>{info.cn}</span>
+              </Link>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* FAQ */}
-      <div className="card" style={{ padding: 28, marginTop: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>常见问题</h2>
+      <section className="section-card card">
+        <div className="section-heading">
+          <h2>{dictionary.intro.compareTitle}</h2>
+          <p>{dictionary.intro.compareDesc}</p>
+        </div>
+
+        <div className="compare-table">
+          <div className="compare-row compare-header">
+            <div>{dictionary.intro.compareHeaders.aspect}</div>
+            <div>{dictionary.intro.compareHeaders.mbti}</div>
+            <div>{dictionary.intro.compareHeaders.sbti}</div>
+          </div>
+          {dictionary.intro.compareRows.map((row) => (
+            <div key={row.aspect} className="compare-row">
+              <div className="compare-aspect">{row.aspect}</div>
+              <div className="compare-mbti">{row.mbti}</div>
+              <div className="compare-sbti">{row.sbti}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section-card card">
+        <div className="section-heading">
+          <h2>{dictionary.intro.faqTitle}</h2>
+          <p>{dictionary.intro.faqDesc}</p>
+        </div>
+
         <div className="faq-list">
-          {FAQ_ITEMS.map((item, i) => (
-            <details key={i} className="faq-item">
+          {dictionary.intro.faqItems.map((item) => (
+            <details key={item.q} className="faq-item">
               <summary>{item.q}</summary>
               <p>{item.a}</p>
             </details>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* CTA */}
-      <div className="card" style={{ padding: 28, marginTop: 20, textAlign: 'center' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>准备好了吗？</h2>
-        <p style={{ color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
-          大约 3-5 分钟，测出你的灵魂画像
-        </p>
-        <button className="btn-primary" onClick={onStart}>开始测试</button>
-      </div>
+      <footer className="site-footer card">
+        <div>
+          <span>{dictionary.intro.inspiration}</span>
+          <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer">
+            {AUTHOR_NAME}
+          </a>
+        </div>
+        <span>{dictionary.intro.entertainmentOnly}</span>
+        <strong>{dictionary.intro.poweredBy} {host}</strong>
+      </footer>
     </section>
   );
 }

@@ -60,3 +60,38 @@ export interface ComputeResult {
   special: boolean;
   secondaryType: RankedType | null;
 }
+
+export interface DnaPayload {
+  rawScores: Record<string, number>;
+  drunkTriggered: boolean;
+}
+
+export interface PopularTypeStat {
+  rank: number;
+  code: string;
+  percent: string;
+  count: number;
+}
+
+export interface RareTypeStat {
+  code: string;
+  percent: string;
+  count: number;
+}
+
+export interface SiteStats {
+  totalCompletions: number;
+  popularTypes: PopularTypeStat[];
+  rareTypes: RareTypeStat[];
+}
+
+export interface CpReport {
+  chemistryScore: number;
+  formula: string;
+  headline: string;
+  vibe: string;
+  strengths: string;
+  hazards: string;
+  scenario: string;
+  verdict: string;
+}
